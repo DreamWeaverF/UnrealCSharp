@@ -440,14 +440,7 @@ void FCSharpEnvironment::OnAsyncLoadingFlushUpdate()
 			Bind<true>(PendingBindObject);
 		}
 
-		if (const auto FoundManagedHandle = GetObject(PendingBindObject);
-			IManagedHandleIsValid(FoundManagedHandle))
-		{
-			if (const auto FoundClass = FReflectionRegistry::Get().GetClass(PendingBindObject->GetClass()))
-			{
-				FoundClass->ConstructorObject(FoundManagedHandle);
-			}
-		}
+		ConstructManagedObject(PendingBindObject);
 	}
 }
 
@@ -528,6 +521,11 @@ bool FCSharpEnvironment::AddObjectReference(const FClassReflection* InClass, UOb
                                             const IManagedHandle InManagedHandle) const
 {
 	return ObjectRegistry != nullptr ? ObjectRegistry->AddReference(InClass, InObject, InManagedHandle) : false;
+}
+
+bool FCSharpEnvironment::ConstructManagedObject(UObject* InObject) const
+{
+	return ObjectRegistry != nullptr ? ObjectRegistry->Construct(InObject) : false;
 }
 
 IManagedHandle FCSharpEnvironment::GetObject(const UObject* InObject) const

@@ -253,15 +253,17 @@ void FClassRegistry::ClassConstructor(const FObjectInitializer& InObjectInitiali
 						if (const auto FoundManagedHandle = FCSharpEnvironment::GetEnvironment().GetObject(Object);
 							IManagedHandleIsValid(FoundManagedHandle))
 						{
-							if (const auto FoundClass = FReflectionRegistry::Get().GetClass(ObjectClass);
-								FoundClass != nullptr)
-							{
-								FDynamicClassGenerator::ObjectDeferredConstructor(InObjectInitializer,
-									[FoundManagedHandle, FoundClass]()
+							const TWeakObjectPtr<UObject> WeakObject = Object;
+
+							FDynamicClassGenerator::ObjectDeferredConstructor(InObjectInitializer,
+								[WeakObject]()
+								{
+									if (const auto ObjectToConstruct = WeakObject.Get())
 									{
-										FoundClass->ConstructorObject(FoundManagedHandle);
-									});
-							}
+										FCSharpEnvironment::GetEnvironment().ConstructManagedObject(
+											ObjectToConstruct);
+									}
+								});
 						}
 					}
 				}

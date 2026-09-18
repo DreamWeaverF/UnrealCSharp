@@ -2,6 +2,7 @@
 
 #include "Environment/FCSharpEnvironment.h"
 #include "Bridge/FTypeBridge.h"
+#include "Domain/FDomain.h"
 #include "Domain/Script/IManagedHandle.h"
 #include "Registry/FClassRegistry.h"
 
@@ -60,7 +61,13 @@ auto FCSharpBind::BindImplementation(UObject* InObject) -> IManagedHandle
 		return InvalidManagedHandle;
 	}
 
-	const auto Class = InObject->GetClass();
+	if (const auto FoundManagedHandle = FCSharpEnvironment::GetEnvironment().GetObject(InObject);
+		IManagedHandleIsValid(FoundManagedHandle))
+	{
+		return FoundManagedHandle;
+	}
+
+	const auto Class = ResolveBindingClass(InObject->GetClass());
 
 	if (Class == nullptr)
 	{
@@ -81,7 +88,17 @@ auto FCSharpBind::BindImplementation(UObject* InObject) -> IManagedHandle
 
 	const auto NewObject = FoundClass->NewObject();
 
-	FCSharpEnvironment::GetEnvironment().AddObjectReference(FoundClass, InObject, NewObject);
+	if (!IManagedHandleIsValid(NewObject))
+	{
+		return InvalidManagedHandle;
+	}
+
+	if (!FCSharpEnvironment::GetEnvironment().AddObjectReference(FoundClass, InObject, NewObject))
+	{
+		FDomain::GCHandle_Free(NewObject);
+
+		return InvalidManagedHandle;
+	}
 
 	return NewObject;
 }

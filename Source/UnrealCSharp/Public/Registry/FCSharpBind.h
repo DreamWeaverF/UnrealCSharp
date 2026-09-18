@@ -46,6 +46,9 @@ public:
 	static bool BindClassDefaultObject(UObject* InObject);
 
 private:
+	static UClass* ResolveBindingClass(UClass* InClass);
+
+private:
 	template <auto IsNeedOverride>
 	static auto BindImplementation(UObject* InObject) -> IManagedHandle;
 

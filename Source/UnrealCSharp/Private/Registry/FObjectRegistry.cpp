@@ -29,6 +29,10 @@ void FObjectRegistry::Deinitialize()
 	ManagedHandle2Object.Empty();
 
 	Object2ManagedHandle.Empty();
+
+	ManagedHandle2Class.Empty();
+
+	ConstructedManagedHandles.Empty();
 }
 
 void* FObjectRegistry::GetAddress(const IManagedHandle InManagedHandle)
@@ -69,12 +73,42 @@ IManagedHandle FObjectRegistry::GetManagedHandle(const UObject* InObject)
 	return FoundManagedHandle != nullptr ? *FoundManagedHandle : InvalidManagedHandle;
 }
 
+bool FObjectRegistry::Construct(UObject* InObject)
+{
+	const auto FoundManagedHandle = Object2ManagedHandle.Find(InObject);
+
+	if (FoundManagedHandle == nullptr || ConstructedManagedHandles.Contains(*FoundManagedHandle))
+	{
+		return false;
+	}
+
+	const auto FoundClass = ManagedHandle2Class.Find(*FoundManagedHandle);
+
+	if (FoundClass == nullptr || *FoundClass == nullptr)
+	{
+		return false;
+	}
+
+	ConstructedManagedHandles.Add(*FoundManagedHandle);
+
+	(*FoundClass)->ConstructorObject(*FoundManagedHandle);
+
+	return true;
+}
+
 bool FObjectRegistry::AddReference(const FClassReflection* InClass, UObject* InObject,
                                    const IManagedHandle InManagedHandle)
 {
+	if (InClass == nullptr || InObject == nullptr || !IManagedHandleIsValid(InManagedHandle))
+	{
+		return false;
+	}
+
 	Object2ManagedHandle.Add(InObject, InManagedHandle);
 
 	ManagedHandle2Object.Add(InManagedHandle, &*InObject);
+
+	ManagedHandle2Class.Add(InManagedHandle, InClass);
 
 	return true;
 }
@@ -83,13 +117,19 @@ bool FObjectRegistry::RemoveReference(const UObject* InObject)
 {
 	if (const auto FoundManagedHandle = Object2ManagedHandle.Find(InObject))
 	{
+		const auto ManagedHandle = *FoundManagedHandle;
+
 		Object2ManagedHandle.Remove(InObject);
 
-		ManagedHandle2Object.Remove(*FoundManagedHandle);
+		ManagedHandle2Object.Remove(ManagedHandle);
 
-		FDomain::GCHandle_Free(*FoundManagedHandle);
+		ManagedHandle2Class.Remove(ManagedHandle);
 
-		(void)FCSharpEnvironment::GetEnvironment().RemoveReference(*FoundManagedHandle);
+		ConstructedManagedHandles.Remove(ManagedHandle);
+
+		FDomain::GCHandle_Free(ManagedHandle);
+
+		(void)FCSharpEnvironment::GetEnvironment().RemoveReference(ManagedHandle);
 
 		return true;
 	}
@@ -114,6 +154,10 @@ bool FObjectRegistry::RemoveReference(const IManagedHandle InManagedHandle)
 		}
 
 		ManagedHandle2Object.Remove(InManagedHandle);
+
+		ManagedHandle2Class.Remove(InManagedHandle);
+
+		ConstructedManagedHandles.Remove(InManagedHandle);
 
 		return true;
 	}

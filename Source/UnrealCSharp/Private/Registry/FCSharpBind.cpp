@@ -4,6 +4,8 @@
 #include "Reflection/Function/CSharpFunction.h"
 #include "Common/FUnrealCSharpFunctionLibrary.h"
 #include "Delegate/FUnrealCSharpModuleDelegates.h"
+#include "Dynamic/FDynamicClassGenerator.h"
+#include "Engine/BlueprintGeneratedClass.h"
 #include "Template/TGetArrayLength.inl"
 #include "Template/TFieldIteratorExt.inl"
 #include "Setting/UnrealCSharpSetting.h"
@@ -101,6 +103,45 @@ bool FCSharpBind::BindClassDefaultObject(UObject* InObject)
 	}
 
 	return false;
+}
+
+UClass* FCSharpBind::ResolveBindingClass(UClass* InClass)
+{
+	if (InClass == nullptr)
+	{
+		return nullptr;
+	}
+
+	if (FReflectionRegistry::Get().GetClass(InClass) != nullptr)
+	{
+		return InClass;
+	}
+
+	if (Cast<UBlueprintGeneratedClass>(InClass) == nullptr)
+	{
+		return nullptr;
+	}
+
+	auto ParentClass = InClass->GetSuperClass();
+
+	while (ParentClass != nullptr)
+	{
+		if (FDynamicClassGenerator::IsDynamicClass(ParentClass))
+		{
+			return FReflectionRegistry::Get().GetClass(ParentClass) != nullptr
+			       ? ParentClass
+			       : nullptr;
+		}
+
+		if (Cast<UBlueprintGeneratedClass>(ParentClass) == nullptr)
+		{
+			return nullptr;
+		}
+
+		ParentClass = ParentClass->GetSuperClass();
+	}
+
+	return nullptr;
 }
 
 bool FCSharpBind::BindImplementation(UStruct* InStruct)
@@ -543,11 +584,16 @@ void FCSharpBind::OnCSharpEnvironmentInitialize()
 			{
 				TArray<UObject*> Results;
 
-				GetObjectsOfClass(Class, Results, false);
+				const auto bIncludeDerivedClasses = FDynamicClassGenerator::IsDynamicClass(Class);
+
+				GetObjectsOfClass(Class, Results, bIncludeDerivedClasses);
 
 				for (const auto Result : Results)
 				{
-					Bind(Result);
+					if (IManagedHandleIsValid(Bind(Result)) && bIncludeDerivedClasses)
+					{
+						FCSharpEnvironment::GetEnvironment().ConstructManagedObject(Result);
+					}
 				}
 			}
 		}

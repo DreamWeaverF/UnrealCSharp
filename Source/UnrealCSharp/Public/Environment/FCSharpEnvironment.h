@@ -97,6 +97,8 @@ public:
 
 	bool AddObjectReference(const FClassReflection* InClass, UObject* InObject, IManagedHandle InManagedHandle) const;
 
+	bool ConstructManagedObject(UObject* InObject) const;
+
 	IManagedHandle GetObject(const UObject* InObject) const;
 
 	template <typename T = UObject>

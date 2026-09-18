@@ -36,6 +36,8 @@ public:
 
 	IManagedHandle GetManagedHandle(const UObject* InObject);
 
+	bool Construct(UObject* InObject);
+
 public:
 	bool AddReference(const FClassReflection* InClass, UObject* InObject, const IManagedHandle InManagedHandle);
 
@@ -47,4 +49,8 @@ private:
 	FObjectMapping::FManagedHandle2Value ManagedHandle2Object;
 
 	FObjectMapping::FAddress2ManagedHandle Object2ManagedHandle;
+
+	TMap<IManagedHandle, const FClassReflection*> ManagedHandle2Class;
+
+	TSet<IManagedHandle> ConstructedManagedHandles;
 };

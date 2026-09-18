@@ -22,16 +22,11 @@ void FDynamicRegistry::Initialize()
 		{
 			if (IsInGameThread())
 			{
-				FCSharpEnvironment::GetEnvironment().Bind<true>(InObject);
+				auto& Environment = FCSharpEnvironment::GetEnvironment();
 
-				if (const auto FoundManagedHandle = FCSharpEnvironment::GetEnvironment().GetObject(InObject);
-					IManagedHandleIsValid(FoundManagedHandle))
-				{
-					if (const auto FoundClass = FReflectionRegistry::Get().GetClass(InObject->GetClass()))
-					{
-						FoundClass->ConstructorObject(FoundManagedHandle);
-					}
-				}
+				Environment.Bind<true>(InObject);
+
+				Environment.ConstructManagedObject(InObject);
 			}
 		}
 	};
